@@ -190,7 +190,12 @@ async function callAuth(endpoint, body, { apiBase, demoMode }) {
     err.status = res.status;
     throw err;
   }
-  return res.json();
+  const data = await res.json();
+  // Some browsers strip Authorization headers on cross-origin redirects;
+  // we never want a stale token surviving a fresh auth attempt.
+  localStorage.removeItem('training_token');
+  localStorage.removeItem('training_user');
+  return data;
 }
 
 // --- Main form ---

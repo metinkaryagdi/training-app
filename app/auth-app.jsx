@@ -58,8 +58,8 @@ function ApiStatusBadge({ apiBase, demoMode }) {
     setStatus('checking');
     const ctrl = new AbortController();
     const timer = setTimeout(() => ctrl.abort(), 2500);
-    fetch(`${apiBase.replace(/\/$/, '')}/api/topics`, { signal: ctrl.signal, mode: 'cors' })
-      .then(() => { if (!cancelled) setStatus('online'); })
+    fetch(`${apiBase.replace(/\/$/, '')}/api/health`, { signal: ctrl.signal, mode: 'cors' })
+      .then((res) => { if (!cancelled) setStatus(res.ok ? 'online' : 'offline'); })
       .catch(() => { if (!cancelled) setStatus('offline'); })
       .finally(() => clearTimeout(timer));
     return () => { cancelled = true; ctrl.abort(); };

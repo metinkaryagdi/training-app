@@ -10,8 +10,26 @@ public sealed record SubmitCodingChallengeRequest(Guid CodingChallengeId, Guid? 
 public sealed record SubmitScenarioChallengeRequest(Guid ScenarioChallengeId, Guid? DailyStudyPlanId, string ResponseText);
 
 [Route("api/challenges")]
-public sealed class ChallengesController(ICommandDispatcher commandDispatcher) : AuthenticatedControllerBase
+public sealed class ChallengesController(ICommandDispatcher commandDispatcher, IQueryDispatcher queryDispatcher) : AuthenticatedControllerBase
 {
+    [HttpGet("coding/{id:guid}")]
+    [ProducesResponseType<CodingChallengeDto>(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<ActionResult<CodingChallengeDto>> GetCodingChallenge(Guid id, CancellationToken cancellationToken)
+    {
+        var response = await queryDispatcher.Dispatch<GetCodingChallengeByIdQuery, CodingChallengeDto>(new GetCodingChallengeByIdQuery(id), cancellationToken);
+        return Ok(response);
+    }
+
+    [HttpGet("scenario/{id:guid}")]
+    [ProducesResponseType<ScenarioChallengeDto>(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<ActionResult<ScenarioChallengeDto>> GetScenarioChallenge(Guid id, CancellationToken cancellationToken)
+    {
+        var response = await queryDispatcher.Dispatch<GetScenarioChallengeByIdQuery, ScenarioChallengeDto>(new GetScenarioChallengeByIdQuery(id), cancellationToken);
+        return Ok(response);
+    }
+
     [HttpPost("coding")]
     [ProducesResponseType<CodingChallengeDto>(StatusCodes.Status200OK)]
     public async Task<ActionResult<CodingChallengeDto>> CreateCodingChallenge(CreateCodingChallengeCommand command, CancellationToken cancellationToken)

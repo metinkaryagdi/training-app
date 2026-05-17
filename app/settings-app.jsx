@@ -163,8 +163,13 @@ function App() {
     }), 1800);
   };
 
-  // Persist prefs (debounced)
+  // Persist prefs (debounced).
+  // - Goals + assessments are UI-only for now (no backend model).
+  // - Minutes maps to the backend's DailyStudyMinutes; we also derive
+  //   DailyQuestionTarget from it so the daily plan respects the new budget.
+  // We skip the first run so opening Settings doesn't immediately PUT.
   const prefsDebounce = sR(null);
+  const initialRender = sR(true);
   sE(() => {
     if (prefsDebounce.current) clearTimeout(prefsDebounce.current);
     prefsDebounce.current = setTimeout(() => {
@@ -175,9 +180,21 @@ function App() {
         completedAt: initialPrefs.completedAt || new Date().toISOString(),
       };
       localStorage.setItem('training_prefs', JSON.stringify(prefs));
-    }, 400);
+
+      if (initialRender.current) {
+        initialRender.current = false;
+        return;
+      }
+      updatePreferences({ apiBase: t.apiBase, demoMode: t.demoMode }, {
+        dailyQuestionTarget: Math.max(1, Math.round(minutes / 2.5)),
+        dailyStudyMinutes: minutes,
+        dailyCodingChallengeTarget: 1,
+        dailyScenarioChallengeTarget: 1,
+        includeWeekends: true,
+      }).catch((err) => console.warn('Preferences sync failed:', err));
+    }, 600);
     return () => prefsDebounce.current && clearTimeout(prefsDebounce.current);
-  }, [goals, minutes, assessments]);
+  }, [goals, minutes, assessments, t.apiBase, t.demoMode]);
 
   // Persist profile
   sE(() => {

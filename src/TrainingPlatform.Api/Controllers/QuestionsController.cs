@@ -16,6 +16,15 @@ public sealed class QuestionsController(ICommandDispatcher commandDispatcher, IQ
         return Ok(response);
     }
 
+    [HttpGet("{id:guid}")]
+    [ProducesResponseType<QuestionDto>(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<ActionResult<QuestionDto>> GetById(Guid id, CancellationToken cancellationToken)
+    {
+        var response = await queryDispatcher.Dispatch<GetQuestionByIdQuery, QuestionDto>(new GetQuestionByIdQuery(id), cancellationToken);
+        return Ok(response);
+    }
+
     [HttpPost]
     [ProducesResponseType<QuestionDto>(StatusCodes.Status200OK)]
     public async Task<ActionResult<QuestionDto>> Create(CreateQuestionCommand command, CancellationToken cancellationToken)

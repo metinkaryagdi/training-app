@@ -142,7 +142,17 @@ async function fetchJson(url, init = {}) {
   if (!res.ok) {
     let msg = res.statusText;
     try { const d = await res.json(); msg = d.detail || d.message || d.title || msg; } catch {}
-    const err = new Error(msg); err.status = res.status; throw err;
+    const err = new Error(msg); err.status = res.status;
+
+    // Global auth handler: an expired/invalid token kicks the user back to sign in,
+    // unless we're already on the auth page (otherwise the redirect would loop).
+    if (res.status === 401 && getAuthToken() && !/Auth\.html(?:$|[?#])/i.test(window.location.pathname)) {
+      localStorage.removeItem('training_token');
+      localStorage.removeItem('training_user');
+      window.location.href = 'Auth.html';
+    }
+
+    throw err;
   }
   return res.json();
 }
@@ -643,8 +653,8 @@ async function fetchChallenge({ apiBase, demoMode }, kind, challengeId) {
     if (!c) throw new Error('Challenge not found');
     return c;
   }
-  // No GET endpoints in backend — fall back to a placeholder error.
-  throw new Error(`Backend has no GET /api/challenges/${kind}/${challengeId}; build a list endpoint.`);
+  const path = kind === 'coding' ? 'coding' : 'scenario';
+  return fetchJson(`${apiBase.replace(/\/$/, '')}/api/challenges/${path}/${encodeURIComponent(challengeId)}`);
 }
 
 async function submitChallenge({ apiBase, demoMode }, kind, body) {
@@ -693,19 +703,64 @@ async function fetchQuestion({ apiBase, demoMode }, questionId) {
     if (!q) throw new Error('Question not found');
     return q;
   }
-  // Backend has no GET /api/questions/{id}; fall back to filtering the list
-  const all = await fetchJson(`${apiBase.replace(/\/$/, '')}/api/questions`);
-  const found = all.find(q => q.id === questionId);
-  if (!found) throw new Error('Question not found');
-  return found;
+  return fetchJson(`${apiBase.replace(/\/$/, '')}/api/questions/${encodeURIComponent(questionId)}`);
+}
+
+/* ─────────────── Health probe ─────────────── */
+async function probeHealth({ apiBase }) {
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), 2500);
+  try {
+    const res = await fetch(`${apiBase.replace(/\/$/, '')}/api/health`, { signal: ctrl.signal, mode: 'cors' });
+    return res.ok;
+  } catch {
+    return false;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+/* ─────────────── User preferences ─────────────── */
+const PREFERENCE_DEFAULTS = {
+  dailyQuestionTarget: 8,
+  dailyStudyMinutes: 20,
+  dailyCodingChallengeTarget: 1,
+  dailyScenarioChallengeTarget: 1,
+  includeWeekends: true,
+};
+
+async function fetchPreferences({ apiBase, demoMode }) {
+  if (demoMode) {
+    await new Promise(r => setTimeout(r, 120));
+    try {
+      const cached = JSON.parse(localStorage.getItem('training_preferences_demo') || 'null');
+      return cached || { ...PREFERENCE_DEFAULTS };
+    } catch { return { ...PREFERENCE_DEFAULTS }; }
+  }
+  return fetchJson(`${apiBase.replace(/\/$/, '')}/api/me/preferences`);
+}
+
+async function updatePreferences({ apiBase, demoMode }, body) {
+  const payload = { ...PREFERENCE_DEFAULTS, ...body };
+  if (demoMode) {
+    await new Promise(r => setTimeout(r, 220));
+    localStorage.setItem('training_preferences_demo', JSON.stringify(payload));
+    return payload;
+  }
+  return fetchJson(`${apiBase.replace(/\/$/, '')}/api/me/preferences`, {
+    method: 'PUT',
+    body: JSON.stringify(payload),
+  });
 }
 
 Object.assign(window, {
   StudyPlanItemType, DailyStudyPlanStatus, TopicDifficulty, QuestionType, ChallengeOutcome,
   TOPIC_NAMES,
+  PREFERENCE_DEFAULTS,
   MOCK_DASHBOARD, MOCK_PLAN, MOCK_QUESTIONS, MOCK_TOPICS,
   MOCK_CODING_CHALLENGES, MOCK_SCENARIO_CHALLENGES,
   fetchTodayPlan, fetchDashboard, generatePlan, fetchQuestion, submitAnswer,
   fetchTopics, fetchChallenge, submitChallenge,
+  fetchPreferences, updatePreferences, probeHealth,
   getCurrentUser, getAuthToken,
 });

@@ -572,8 +572,10 @@ function App() {
     window.location.href = 'Dashboard.html';
   };
 
-  const handleFinish = () => {
-    // Persist preferences
+  const handleFinish = async () => {
+    // Goals + assessments are still UI-only (no backend model yet). The fields
+    // the backend persists are derived from the time budget — daily question
+    // target scales with minutes, challenges default to one of each kind.
     const prefs = {
       goals: Array.from(goals),
       minutesPerDay: minutes,
@@ -582,6 +584,20 @@ function App() {
     };
     localStorage.setItem('training_prefs', JSON.stringify(prefs));
     localStorage.setItem('training_onboarded', 'true');
+
+    try {
+      await updatePreferences({ apiBase: 'http://localhost:5000', demoMode: t.demoMode }, {
+        dailyQuestionTarget: Math.max(1, Math.round(minutes / 2.5)),
+        dailyStudyMinutes: minutes,
+        dailyCodingChallengeTarget: 1,
+        dailyScenarioChallengeTarget: 1,
+        includeWeekends: true,
+      });
+    } catch (err) {
+      // Don't block the flow if preferences sync fails — user can adjust in Settings.
+      console.warn('Preferences sync failed:', err);
+    }
+
     window.location.href = 'Dashboard.html';
   };
 

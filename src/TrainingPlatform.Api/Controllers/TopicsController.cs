@@ -16,6 +16,15 @@ public sealed class TopicsController(ICommandDispatcher commandDispatcher, IQuer
         return Ok(response);
     }
 
+    [HttpGet("{id:guid}")]
+    [ProducesResponseType<TopicDto>(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<ActionResult<TopicDto>> GetById(Guid id, CancellationToken cancellationToken)
+    {
+        var response = await queryDispatcher.Dispatch<GetTopicByIdQuery, TopicDto>(new GetTopicByIdQuery(id), cancellationToken);
+        return Ok(response);
+    }
+
     [HttpPost]
     [ProducesResponseType<TopicDto>(StatusCodes.Status200OK)]
     public async Task<ActionResult<TopicDto>> Create(CreateTopicCommand command, CancellationToken cancellationToken)
